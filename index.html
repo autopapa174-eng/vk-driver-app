@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Driver Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body { margin:0; font-family: Arial; }
+#map { height:100vh; }
+
+.btns {
+position: fixed;
+bottom: 20px;
+left: 50%;
+transform: translateX(-50%);
+display: flex;
+gap: 10px;
+z-index: 1000;
+}
+
+button {
+padding: 12px;
+border-radius: 12px;
+border: none;
+background: black;
+color: white;
+font-size: 14px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<div class="btns">
+<button onclick="addMarker('dps')">🚓 ДПС</button>
+<button onclick="addMarker('camera')">📷 Камера</button>
+<button onclick="addMarker('pit')">🕳 Яма</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+const API = "https://vk-driver-app-production.up.railway.app";
+
+let map = L.map('map').setView([55.75, 37.61], 13);
+
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+let userMarker;
+
+// Иконка машины
+const carIcon = L.divIcon({
+    html: "🚗",
+    className: "",
+    iconSize: [30, 30]
+});
+
+// Получение позиции
+navigator.geolocation.watchPosition(pos => {
+    let lat = pos.coords.latitude;
+    let lon = pos.coords.longitude;
+
+    if (!userMarker) {
+        userMarker = L.marker([lat, lon], {icon: carIcon}).addTo(map);
+        map.setView([lat, lon], 15);
+    } else {
+        userMarker.setLatLng([lat, lon]);
+    }
+});
+
+// Загрузка меток
+async function loadMarkers(){
+    let res = await fetch(API + "/markers");
+    let data = await res.json();
+
+    console.log("LOADED:", data);
+
+    data.forEach(m => {
+        let icon = "📍";
+        if (m.type === "dps") icon = "🚓";
+        if (m.type === "camera") icon = "📷";
+        if (m.type === "pit") icon = "🕳";
+
+        L.marker([m.lat, m.lng])
+        .addTo(map)
+        .bindPopup(icon);
+    });
+}
+
+// Добавление метки
+async function addMarker(type){
+    console.log("CLICK:", type);
+
+    navigator.geolocation.getCurrentPosition(async pos => {
+        let lat = pos.coords.latitude;
+        let lng = pos.coords.longitude;
+
+        let marker = {
+            lat: lat,
+            lng: lng,
+            type: type
+        };
+
+        await fetch(API + "/add", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(marker)
+        });
+
+        alert("Метка добавлена");
+
+        location.reload();
+    });
+}
+
+loadMarkers();
+</script>
+
+</body>
+</html>
